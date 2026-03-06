@@ -37,7 +37,7 @@ Invoke-MaintenanceCommand `
     -Command "sudo rm -rf /var/log/*" `
     -PiHost $PiHost `
     -LogPath $LogPath `
-    -MultiLine:$false
+    -NoOutput
 
 Invoke-MaintenanceCommand `
     -TaskName "Check disk space" `
