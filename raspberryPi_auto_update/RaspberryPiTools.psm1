@@ -56,7 +56,9 @@ function Normalize-SingleLine {
         [Parameter(Mandatory=$true)]
         [string]$RawOutput
     )
-
+    if ([string]::IsNullOrWhiteSpace($RawOutput)) {
+        return ""
+    }
     return $RawOutput.Trim()
 }
 
@@ -73,11 +75,14 @@ function Normalize-MultiLine {
     )
 
     $text = $RawOutput.TrimEnd()
-    if ([string]::IsNullOrWhiteSpace($text)) {
-        return @()
-    }
+    $lines = $text -split "`n"
 
-    return $text -split "`n"
+    # Trim each line AND remove lines that are only whitespace
+    $clean = $lines |
+        ForEach-Object { $_.TrimEnd() } |
+        Where-Object { $_ -ne "" }
+
+    return $clean
 }
 
 # -------------------------
