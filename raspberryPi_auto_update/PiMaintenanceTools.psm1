@@ -53,7 +53,6 @@ function Normalize-SingleLine {
         Raw string from Invoke-RawSsh.
     #>
     param(
-        [Parameter(Mandatory=$true)]
         [string]$RawOutput
     )
     if ([string]::IsNullOrWhiteSpace($RawOutput)) {
@@ -70,10 +69,11 @@ function Normalize-MultiLine {
         Raw string from Invoke-RawSsh.
     #>
     param(
-        [Parameter(Mandatory=$true)]
         [string]$RawOutput
     )
-
+    if ([string]::IsNullOrWhiteSpace($RawOutput)) {
+        return @()
+    }
     $text = $RawOutput.TrimEnd()
     $lines = $text -split "`n"
 
