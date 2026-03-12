@@ -16,3 +16,4 @@ raspberryPi_auto_update/test.ps1
 raspberryPi_auto_update/test_log.txt
 raspberryPi_auto_update/test.txt
 raspberryPi_auto_update/RaspberryPiTools.txt
+raspberryPi_auto_update/PiCred.psm1

@@ -1,9 +1,10 @@
 # -------------------------
 # 1. INITIAL SETUP
 # -------------------------
-Import-Module "$PSScriptRoot\RaspberryPiTools.psm1"
-$LogPath = "C:\Users\hellz\OneDrive\Programing\powershell\powershell_projects\raspberryPi_auto_update\PiMaintenance-Report.log"
-$PiHost = "thewizard@blockmagic"
+Import-Module "$PSScriptRoot\PiMaintenance-Tools.psm1"
+Import-Module "$PSScriptRoot\PiCred.psm1"
+$LogPath = Get-LogPath
+$PiHost = Get-PiHost
 $StartTime = Get-Date
 $Timestamp = $StartTime.ToString("yyyy-MM-dd HH:mm:ss")
 
