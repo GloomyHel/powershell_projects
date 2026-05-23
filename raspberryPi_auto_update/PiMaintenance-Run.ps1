@@ -3,27 +3,68 @@
 # -------------------------
 Import-Module "$PSScriptRoot\PiMaintenance-Tools.psm1"
 Import-Module "$PSScriptRoot\PiCred.psm1"
+
+Write-Host "Running pre-flight checks..." -ForegroundColor Green
+
+if (-not (Get-Command ssh -ErrorAction SilentlyContinue)) {
+    throw "SSH is not installed or not in PATH."
+}
+
+if (-not (Get-Command Get-LogPath -ErrorAction SilentlyContinue)) {
+    throw "PiCred module did not load correctly — check Export-ModuleMember."
+}
+
+if (-not (Get-Command Invoke-MaintenanceCommand -ErrorAction SilentlyContinue)) {
+    throw "PiMaintenance-Tools module did not load correctly."
+}
+
 $LogPath = Get-LogPath
+$LogDir  = Split-Path $LogPath
+
+if (-not (Test-Path $LogDir)) {
+    throw "Log directory does not exist: $LogDir"
+}
+
 $PiHost = Get-PiHost
+
+if ([string]::IsNullOrWhiteSpace($PiHost)) {
+    throw "PiHost returned an empty string — check PiMaintenance.config.json"
+}
+
+$Retry   = Get-RetrySettings
+if ($Retry.RetryCount -lt 0 -or $Retry.RetryDelaySeconds -lt 0) {
+    throw "Invalid retry settings in config — RetryCount and RetryDelaySeconds must be non-negative."
+}
+$DryRun  = Get-DryRun
+if ($DryRun) {
+    Write-Host "Running in DRY RUN mode — no changes will be made to the Pi." -ForegroundColor Yellow
+}
+
 $StartTime = Get-Date
 $Timestamp = $StartTime.ToString("yyyy-MM-dd HH:mm:ss")
+
+Write-Host "Pre-flight checks passed." -ForegroundColor Green
 
 "-----------------------------------`n RASPBERRY-PI AUTOMATIC UPDATE LOG `n-----------------------------------" | Out-File $LogPath
 "Last run: $Timestamp" | Out-File $LogPath -Append
 
 # -------------------------
-# 2. TEST SSH CONNECTION
+# 1. TEST SSH CONNECTION
 # -------------------------
+Show-Step "Testing SSH connection"
+
 $OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $Output = ssh $PiHost "echo connected" 2>&1
 
 if ($LASTEXITCODE -eq 0) {
     "SSH login: successful`n" | Out-File $LogPath -Append
+    Show-Result "SSH login" $true
 }
 else {
     "SSH login: failed" | Out-File $LogPath -Append
     "Error: $($Output[0])" | Out-File $LogPath -Append
-    "Automatic update failed (see Raspberry Pi logs)`n" | Out-File $LogPath -Append
+    #"Automatic update failed (see Raspberry Pi logs)`n" | Out-File $LogPath -Append
+    Show-Result "SSH login" $false
     exit
 }
 
@@ -107,7 +148,7 @@ Invoke-UpdateCommand `
     -LogPath $LogPath `
     -LogOutput:$false
 
-Write-LogSummary -SummaryObject $UpgradeSummary -LogPath $LogPath
+ Write-LogSummary -SummaryObject $UpgradeSummary -LogPath $LogPath
 
 # -------------------------
 # 5. LOOP 3: PI-HOLE UPDATES REPORT
@@ -135,10 +176,11 @@ Invoke-UpdateCommand `
 # You can later swap this to Invoke-UpdateCommand if you want logged reboot.
 
 # -------------------------
-# 10. FINAL SUMMARY AND RUNTIME CALCULATION
+# 7. FINAL SUMMARY AND RUNTIME CALCULATION
 # -------------------------
 "----------`n FINAL SUMMARY `n----------"  | Out-File $LogPath -Append
 
 $EndTime = Get-Date
 $Duration = $EndTime - $StartTime
+
 "Automatic update completed: $Timestamp`nTotal runtime: $Duration`n(see Raspberry Pi logs)" | Out-File $LogPath -Append

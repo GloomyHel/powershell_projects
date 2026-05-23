@@ -9,7 +9,34 @@ Public API:
 #>
 
 # -------------------------
-# LAYER 1: RAW SSH EXECUTION (INTERNAL)
+# LAYER 1: UI HELPERS (PUBLIC)
+# -------------------------
+
+
+function Show-Step {
+    param([string]$Message)
+    Write-Host ""
+    Write-Host "→ $Message" -ForegroundColor Cyan
+}
+
+function Show-Result {
+    param(
+        [string]$TaskName,
+        [bool]$Success
+    )
+
+    if ($Success) {
+        Write-Host "✓ $TaskName successful" -ForegroundColor Green
+    }
+    else {
+        Write-Host "✗ $TaskName failed" -ForegroundColor Red
+    }
+}
+
+
+
+# -------------------------
+# LAYER 2: RAW SSH EXECUTION (INTERNAL)
 # -------------------------
 
 function Invoke-RawSsh {
@@ -19,10 +46,11 @@ function Invoke-RawSsh {
     .PARAMETER Command
         The command to run on the Raspberry Pi (e.g., "hostname").
     .PARAMETER PiHost
-        The SSH host string (e.g., "thewizard@blockmagic").
+        The SSH host string (e.g., "****@***").
     .OUTPUTS
         PSCustomObject with Success (bool) and RawOutput (string).
     #>
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
         [string]$Command,
@@ -30,19 +58,32 @@ function Invoke-RawSsh {
         [Parameter(Mandatory=$true)]
         [string]$PiHost
     )
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
     $raw = ssh "$PiHost" "$Command" 2>&1
     $success = $LASTEXITCODE -eq 0
     $text = ($raw | Out-String)
 
+    # Error categorisation
+    $category = "None"
+
+    if (-not $success) {
+        if ($text -match "Permission denied") { $category = "AuthenticationError" }
+        elseif ($text -match "Could not resolve hostname") { $category = "DnsError" }
+        elseif ($text -match "Connection timed out") { $category = "TimeoutError" }
+        elseif ($text -match "Connection refused") { $category = "ConnectionError" }
+        else { $category = "UnknownError" }
+    }
+
     return [PSCustomObject]@{
         Success   = $success
         RawOutput = $text
+        ErrorCategory = $category        
     }
 }
 
 # -------------------------
-# LAYER 2: NORMALISATION HELPERS (INTERNAL)
+# LAYER 3: NORMALISATION HELPERS (INTERNAL)
 # -------------------------
 
 function Normalize-SingleLine {
@@ -86,7 +127,7 @@ function Normalize-MultiLine {
 }
 
 # -------------------------
-# LAYER 3: PUBLIC WRAPPERS
+# LAYER 4: PUBLIC WRAPPERS
 # -------------------------
 
 function Invoke-MaintenanceCommand {
@@ -127,9 +168,9 @@ function Invoke-MaintenanceCommand {
 
         [Parameter()]
         [switch]$NoOutput,
-
         [switch]$MultiLine
     )
+    Show-Step $TaskName
 
     $result = Invoke-RawSsh -Command $Command -PiHost $PiHost
 
@@ -147,32 +188,36 @@ function Invoke-MaintenanceCommand {
     }
     else {
         "{$TaskName}: failed" | Out-File $LogPath -Append
+        "ERROR CATEGORY: $($result.ErrorCategory)" | Out-File $LogPath -Append
         if ($lines.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($lines[0])) {
             "ERROR: $($lines[0])`n" | Out-File $LogPath -Append
         }
-        return [PSCustomObject]@{
-            Success = $false
-            Output  = $lines
+    }
+
+    # Terminal output
+    Show-Result $TaskName $result.Success
+
+    # Log output
+    if (-not $NoOutput) {
+        $label = if ($OutputLabel) { $OutputLabel } else { $TaskName }
+
+        if ($MultiLine) {
+            "{$label}:" | Out-File $LogPath -Append
+            $lines | ForEach-Object { "    $_" | Out-File $LogPath -Append }
+            "" | Out-File $LogPath -Append
+        }
+        else {
+            "{$label}: $($lines[0])`n" | Out-File $LogPath -Append
         }
     }
 
-    # Log output
-    $label = if ($OutputLabel) { $OutputLabel } else { $TaskName }
-
-    if ($MultiLine) {
-        "{$label}:" | Out-File $LogPath -Append
-        $lines | ForEach-Object { "    $_" | Out-File $LogPath -Append }
-        "" | Out-File $LogPath -Append
-    }
-    else {
-        "{$label}: $($lines[0])`n" | Out-File $LogPath -Append
-    }
-
     return [PSCustomObject]@{
-        Success = $true
+        Success = $result.Success
         Output  = $lines
+        Error   = if ($result.Success) { $null } else { $lines[0] }
     }
 }
+
 
 function Invoke-UpdateCommand {
     <#
@@ -204,9 +249,9 @@ function Invoke-UpdateCommand {
 
         [Parameter(Mandatory=$true)]
         [string]$LogPath,
-
         [switch]$LogOutput
     )
+    Show-Step $TaskName
 
     $result = Invoke-RawSsh -Command $Command -PiHost $PiHost
     $lines  = Normalize-MultiLine -RawOutput $result.RawOutput
@@ -216,10 +261,13 @@ function Invoke-UpdateCommand {
     }
     else {
         "{$TaskName}: failed" | Out-File $LogPath -Append
+        "ERROR CATEGORY: $($result.ErrorCategory)" | Out-File $LogPath -Append
         if ($lines.Count -gt 0) {
             "ERROR: $($lines[0])`n" | Out-File $LogPath -Append
         }
     }
+
+    Show-Result $TaskName $result.Success
 
     if ($result.Success -and $LogOutput) {
         "{$TaskName} output:" | Out-File $LogPath -Append
@@ -259,6 +307,7 @@ function ConvertFrom-AptSummary {
     $count = $packages.Count
 
     return [PSCustomObject]@{
+        "Upgrading" = @()
         "Not Upgrading" = $packages
         "Summary"       = @(
             "Upgrading: 0",
@@ -317,4 +366,5 @@ function Write-LogSummary {
 # -------------------------
 # EXPORT PUBLIC API
 # -------------------------
-Export-ModuleMember -Function Invoke-MaintenanceCommand, Invoke-UpdateCommand, ConvertFrom-AptSummary, Write-LogSummary
+
+Export-ModuleMember -Function Invoke-MaintenanceCommand, Invoke-UpdateCommand, ConvertFrom-AptSummary, Write-LogSummary, Show-Step, Show-Result
