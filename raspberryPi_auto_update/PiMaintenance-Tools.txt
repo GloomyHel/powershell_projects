@@ -81,7 +81,7 @@ function Invoke-RawSsh {
     
     while ($attempt -le $RetryCount) {
    
-       $raw = ssh "$PiHost" "$Command" 2>&1
+        $raw = ssh "$PiHost" "$Command" 2>&1
         $success = $LASTEXITCODE -eq 0
         $text = ($raw | Out-String)
 
@@ -97,10 +97,10 @@ function Invoke-RawSsh {
 
         # SUCCESS — return immediately
         if ($success) {        
-        return [PSCustomObject]@{
-            Success   = $true
-            RawOutput = $text
-            ErrorCategory = "None"        
+            return [PSCustomObject]@{
+                Success   = $true
+                RawOutput = $text
+                ErrorCategory = "None"        
             }
         }
 
@@ -132,12 +132,8 @@ function Normalize-SingleLine {
     .PARAMETER RawOutput
         Raw string from Invoke-RawSsh.
     #>
-    param(
-        [string]$RawOutput
-    )
-    if ([string]::IsNullOrWhiteSpace($RawOutput)) {
-        return ""
-    }
+    param([string]$RawOutput)
+    if ([string]::IsNullOrWhiteSpace($RawOutput)) { return "" }
     return $RawOutput.Trim()
 }
 
@@ -148,12 +144,9 @@ function Normalize-MultiLine {
     .PARAMETER RawOutput
         Raw string from Invoke-RawSsh.
     #>
-    param(
-        [string]$RawOutput
-    )
-    if ([string]::IsNullOrWhiteSpace($RawOutput)) {
-        return @()
-    }
+    param([string]$RawOutput)
+    if ([string]::IsNullOrWhiteSpace($RawOutput)) { return @() }
+
     $text = $RawOutput.TrimEnd()
     $lines = $text -split "`n"
 
@@ -206,7 +199,18 @@ function Invoke-MaintenanceCommand {
         [string]$LogPath,
 
         [Parameter()]
+        [int]$RetryCount = 0,
+
+        [Parameter()]
+        [int]$RetryDelaySeconds = 0,
+
+        [Parameter()]
+        [switch]$DryRun,
+
+        [Parameter()]
         [switch]$NoOutput,
+
+        [Parameter()]
         [switch]$MultiLine
     )
     Show-Step $TaskName
@@ -214,8 +218,8 @@ function Invoke-MaintenanceCommand {
     $result = Invoke-RawSsh `
         -Command $Command `
         -PiHost $PiHost
-        -RetryCount $Retry.RetryCount `
-        -RetryDelaySeconds $Retry.RetryDelaySeconds `
+        -RetryCount $RetryCount `
+        -RetryDelaySeconds $RetryDelaySeconds `
         -DryRun:$DryRun
     
     if ($MultiLine) {
@@ -262,7 +266,6 @@ function Invoke-MaintenanceCommand {
     }
 }
 
-
 function Invoke-UpdateCommand {
     <#
     .SYNOPSIS
@@ -293,15 +296,26 @@ function Invoke-UpdateCommand {
 
         [Parameter(Mandatory=$true)]
         [string]$LogPath,
-        [switch]$LogOutput
+
+        [Parameter()]
+        [int]$RetryCount = 0,
+
+        [Parameter()]
+        [int]$RetryDelaySeconds = 0,
+       
+        [Parameter()]
+        [switch]$DryRun,
+
+        [Parameter()]
+        [switch]$LogOutput        
     )
     Show-Step $TaskName
 
     $result = Invoke-RawSsh `
         -Command $Command `
         -PiHost $PiHost `
-        -RetryCount $Retry.RetryCount `
-        -RetryDelaySeconds $Retry.RetryDelaySeconds `
+        -RetryCount $RetryCount `
+        -RetryDelaySeconds $RetryDelaySeconds `
         -DryRun:$DryRun
     
     $lines  = Normalize-MultiLine -RawOutput $result.RawOutput
@@ -417,4 +431,10 @@ function Write-LogSummary {
 # EXPORT PUBLIC API
 # -------------------------
 
-Export-ModuleMember -Function Invoke-MaintenanceCommand, Invoke-UpdateCommand, ConvertFrom-AptSummary, Write-LogSummary, Show-Step, Show-Result
+Export-ModuleMember -Function `
+    Invoke-MaintenanceCommand, `
+    Invoke-UpdateCommand, `
+    ConvertFrom-AptSummary, `
+    Write-LogSummary, `
+    Show-Step, `
+    Show-Result

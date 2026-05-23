@@ -11,6 +11,7 @@ raspberryPi_auto_update/*.json
 raspberryPi_auto_update/*.png
 #ignore specific files in the raspberryPi_auto_update directory files
 raspberryPi_auto_update/log.txt
+raspberryPi_auto_update/last-run.txt
 raspberryPi_auto_update/runwDebugs.txt
 raspberryPi_auto_update/run.txt
 raspberryPi_auto_update/test.ps1

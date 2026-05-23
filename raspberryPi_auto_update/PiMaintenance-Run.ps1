@@ -102,7 +102,7 @@ $WipeResult = Invoke-MaintenanceCommand `
     -Command "sudo rm -rf /var/log/*" `
     -PiHost $PiHost `
     -LogPath $LogPath `
-    -NoOutput
+    -NoOutput `
     -RetryCount $Retry.RetryCount `
     -RetryDelaySeconds $Retry.RetryDelaySeconds `
     -DryRun:$DryRun
@@ -113,7 +113,7 @@ $DiskResult = Invoke-MaintenanceCommand `
     -Command "df -h /" `
     -PiHost $PiHost `
     -LogPath $LogPath `
-    -MultiLine
+    -MultiLine `
     -RetryCount $Retry.RetryCount `
     -RetryDelaySeconds $Retry.RetryDelaySeconds `
     -DryRun:$DryRun
@@ -123,7 +123,7 @@ $UptimeResult = Invoke-MaintenanceCommand `
     -OutputLabel "Uptime" `
     -Command "uptime -p" `
     -PiHost $PiHost `
-    -LogPath $LogPath
+    -LogPath $LogPath `
     -RetryCount $Retry.RetryCount `
     -RetryDelaySeconds $Retry.RetryDelaySeconds `
     -DryRun:$DryRun
@@ -133,7 +133,7 @@ $TempResult = Invoke-MaintenanceCommand `
     -OutputLabel "Temperature" `
     -Command "vcgencmd measure_temp" `
     -PiHost $PiHost `
-    -LogPath $LogPath
+    -LogPath $LogPath `
     -RetryCount $Retry.RetryCount `
     -RetryDelaySeconds $Retry.RetryDelaySeconds `
     -DryRun:$DryRun
@@ -143,7 +143,7 @@ $ThrottleResult = Invoke-MaintenanceCommand `
     -OutputLabel "Throttling" `
     -Command "vcgencmd get_throttled" `
     -PiHost $PiHost `
-    -LogPath $LogPath
+    -LogPath $LogPath `
     -RetryCount $Retry.RetryCount `
     -RetryDelaySeconds $Retry.RetryDelaySeconds `
     -DryRun:$DryRun
@@ -154,7 +154,7 @@ $PiholeStatusResult = Invoke-MaintenanceCommand `
     -Command "pihole status" `
     -PiHost $PiHost `
     -LogPath $LogPath `
-    -MultiLine
+    -MultiLine `
     -RetryCount $Retry.RetryCount `
     -RetryDelaySeconds $Retry.RetryDelaySeconds `
     -DryRun:$DryRun
@@ -169,7 +169,7 @@ $OsCheckResult = Invoke-MaintenanceCommand `
     -OutputLabel "Number of package updates available" `
     -Command "apt list --upgradeable 2>/dev/null | wc -l" `
     -PiHost $PiHost `
-    -LogPath $LogPath
+    -LogPath $LogPath `
     -RetryCount $Retry.RetryCount `
     -RetryDelaySeconds $Retry.RetryDelaySeconds `
     -DryRun:$DryRun
@@ -180,7 +180,7 @@ $ListResult = Invoke-UpdateCommand `
     -Command "apt list --upgradeable 2>/dev/null" `
     -PiHost $PiHost `
     -LogPath $LogPath `
-    -LogOutput:$false
+    -LogOutput:$false `
     -RetryCount $Retry.RetryCount `
     -RetryDelaySeconds $Retry.RetryDelaySeconds `
     -DryRun:$DryRun
@@ -193,7 +193,7 @@ $OsUpgradeResult = Invoke-UpdateCommand `
     -Command "sudo apt upgrade -y" `
     -PiHost $PiHost `
     -LogPath $LogPath `
-    -LogOutput:$false
+    -LogOutput:$false `
     -RetryCount $Retry.RetryCount `
     -RetryDelaySeconds $Retry.RetryDelaySeconds `
     -DryRun:$DryRun
@@ -210,7 +210,7 @@ $PiHoleCheckResult = Invoke-UpdateCommand `
     -Command "pihole -v" `
     -PiHost $PiHost `
     -LogPath $LogPath `
-    -LogOutput
+    -LogOutput `
     -RetryCount $Retry.RetryCount `
     -RetryDelaySeconds $Retry.RetryDelaySeconds `
     -DryRun:$DryRun
@@ -220,7 +220,7 @@ $PiHoleUpdateResult = Invoke-UpdateCommand `
     -Command "sudo pihole -up" `
     -PiHost $PiHost `
     -LogPath $LogPath `
-    -LogOutput:$false
+    -LogOutput:$false `
     -RetryCount $Retry.RetryCount `
     -RetryDelaySeconds $Retry.RetryDelaySeconds `
     -DryRun:$DryRun
