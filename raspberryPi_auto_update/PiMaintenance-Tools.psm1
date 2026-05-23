@@ -266,7 +266,6 @@ function Invoke-MaintenanceCommand {
     }
 }
 
-
 function Invoke-UpdateCommand {
     <#
     .SYNOPSIS

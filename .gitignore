@@ -4,8 +4,9 @@
 venv/
 #ignore all .log files in the root directory
 *.log
-#ignore all .log files in the raspberryPi_auto_update directory
+#ignore all .log and .json files in the raspberryPi_auto_update directory
 raspberryPi_auto_update/*.log
+raspberryPi_auto_update/*.json
 #ignore all .png files in the raspberryPi_auto_update directory
 raspberryPi_auto_update/*.png
 #ignore specific files in the raspberryPi_auto_update directory files
@@ -17,3 +18,4 @@ raspberryPi_auto_update/test_log.txt
 raspberryPi_auto_update/test.txt
 raspberryPi_auto_update/RaspberryPiTools.txt
 raspberryPi_auto_update/PiMaintenance.config.json
+raspberryPi_auto_update/PiMaintenance-Task.xml

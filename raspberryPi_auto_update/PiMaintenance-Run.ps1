@@ -6,6 +6,7 @@ Import-Module "$PSScriptRoot\PiCred.psm1"
 
 Write-Host "Running pre-flight checks..." -ForegroundColor Green
 
+
 if (-not (Get-Command ssh -ErrorAction SilentlyContinue)) {
     throw "SSH is not installed or not in PATH."
 }
@@ -40,10 +41,32 @@ if ($DryRun) {
     Write-Host "Running in DRY RUN mode — no changes will be made to the Pi." -ForegroundColor Yellow
 }
 
+$CurrentSSID = (netsh wlan show interfaces |
+    Select-String "SSID" |
+    Select-Object -First 1).ToString().Split(":")[1].Trim()
+
+if ($CurrentSSID -ne "Spookify") {
+    Write-Host "Not on Spookify network — skipping run."
+    exit
+}
+
+Write-Host "Pre-flight checks passed." -ForegroundColor Green
+
 $StartTime = Get-Date
 $Timestamp = $StartTime.ToString("yyyy-MM-dd HH:mm:ss")
 
-Write-Host "Pre-flight checks passed." -ForegroundColor Green
+$LastRunFile = "$PSScriptRoot\last-run.txt"
+
+if (Test-Path $LastRunFile) {
+    $LastRun = Get-Content $LastRunFile | Get-Date
+    $DaysSince = (New-TimeSpan -Start $LastRun -End (Get-Date)).Days
+
+    if ($DaysSince -lt 7) {
+        Write-Host "Last run was $DaysSince days ago — skipping weekly run."
+        exit
+    }
+}
+
 
 "-----------------------------------`n RASPBERRY-PI AUTOMATIC UPDATE LOG `n-----------------------------------" | Out-File $LogPath
 "Last run: $Timestamp" | Out-File $LogPath -Append
@@ -250,3 +273,5 @@ $JsonSummary = [PSCustomObject]@{
 
 $JsonPath = $LogPath.Replace(".log", ".json")
 $JsonSummary | ConvertTo-Json -Depth 6 | Out-File $JsonPath
+
+(Get-Date).ToString("o") | Out-File $LastRunFile
