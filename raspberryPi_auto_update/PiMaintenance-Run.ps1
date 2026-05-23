@@ -73,62 +73,83 @@ else {
 # -------------------------
 "----------`n MAINTENANCE REPORT `n----------"  | Out-File $LogPath -Append
 
-Invoke-MaintenanceCommand `
+$WipeResult = Invoke-MaintenanceCommand `
     -TaskName "Wipe logs" `
     -OutputLabel "Wipe logs" `
     -Command "sudo rm -rf /var/log/*" `
     -PiHost $PiHost `
     -LogPath $LogPath `
     -NoOutput
+    -RetryCount $Retry.RetryCount `
+    -RetryDelaySeconds $Retry.RetryDelaySeconds `
+    -DryRun:$DryRun
 
-Invoke-MaintenanceCommand `
+$DiskResult = Invoke-MaintenanceCommand `
     -TaskName "Check disk space" `
     -OutputLabel "Disk space" `
     -Command "df -h /" `
     -PiHost $PiHost `
     -LogPath $LogPath `
     -MultiLine
+    -RetryCount $Retry.RetryCount `
+    -RetryDelaySeconds $Retry.RetryDelaySeconds `
+    -DryRun:$DryRun
 
-Invoke-MaintenanceCommand `
+$UptimeResult = Invoke-MaintenanceCommand `
     -TaskName "Check uptime" `
     -OutputLabel "Uptime" `
     -Command "uptime -p" `
     -PiHost $PiHost `
     -LogPath $LogPath
+    -RetryCount $Retry.RetryCount `
+    -RetryDelaySeconds $Retry.RetryDelaySeconds `
+    -DryRun:$DryRun
 
-Invoke-MaintenanceCommand `
+$TempResult = Invoke-MaintenanceCommand `
     -TaskName "Check temperature" `
     -OutputLabel "Temperature" `
     -Command "vcgencmd measure_temp" `
     -PiHost $PiHost `
     -LogPath $LogPath
+    -RetryCount $Retry.RetryCount `
+    -RetryDelaySeconds $Retry.RetryDelaySeconds `
+    -DryRun:$DryRun
 
-Invoke-MaintenanceCommand `
+$ThrottleResult = Invoke-MaintenanceCommand `
     -TaskName "Check throttling" `
     -OutputLabel "Throttling" `
     -Command "vcgencmd get_throttled" `
     -PiHost $PiHost `
     -LogPath $LogPath
+    -RetryCount $Retry.RetryCount `
+    -RetryDelaySeconds $Retry.RetryDelaySeconds `
+    -DryRun:$DryRun
 
-Invoke-MaintenanceCommand `
+$PiholeStatusResult = Invoke-MaintenanceCommand `
     -TaskName "Check Pi-hole status" `
     -OutputLabel "Pi-hole status" `
     -Command "pihole status" `
     -PiHost $PiHost `
     -LogPath $LogPath `
     -MultiLine
+    -RetryCount $Retry.RetryCount `
+    -RetryDelaySeconds $Retry.RetryDelaySeconds `
+    -DryRun:$DryRun
 
 # -------------------------
 # 4. LOOP 2: OS UPDATES REPORT
 # -------------------------
 "----------`n OS UPDATES REPORT `n----------"  | Out-File $LogPath -Append
 
-Invoke-MaintenanceCommand `
+$OsCheckResult = Invoke-MaintenanceCommand `
     -TaskName "Check for package updates" `
     -OutputLabel "Number of package updates available" `
     -Command "apt list --upgradeable 2>/dev/null | wc -l" `
     -PiHost $PiHost `
     -LogPath $LogPath
+    -RetryCount $Retry.RetryCount `
+    -RetryDelaySeconds $Retry.RetryDelaySeconds `
+    -DryRun:$DryRun
 
 # 1. Get list of upgradeable packages
 $ListResult = Invoke-UpdateCommand `
@@ -137,38 +158,50 @@ $ListResult = Invoke-UpdateCommand `
     -PiHost $PiHost `
     -LogPath $LogPath `
     -LogOutput:$false
+    -RetryCount $Retry.RetryCount `
+    -RetryDelaySeconds $Retry.RetryDelaySeconds `
+    -DryRun:$DryRun
 
-$UpgradeSummary = ConvertFrom-AptSummary -Output $ListResult.Output
+$OsUpgradeSummary = ConvertFrom-AptSummary -Output $ListResult.Output
 
 # 3. Perform the upgrade (output ignored in log)
-Invoke-UpdateCommand `
+$OsUpgradeResult = Invoke-UpdateCommand `
     -TaskName "Package upgrades" `
     -Command "sudo apt upgrade -y" `
     -PiHost $PiHost `
     -LogPath $LogPath `
     -LogOutput:$false
-
- Write-LogSummary -SummaryObject $UpgradeSummary -LogPath $LogPath
+    -RetryCount $Retry.RetryCount `
+    -RetryDelaySeconds $Retry.RetryDelaySeconds `
+    -DryRun:$DryRun
+    
+ Write-LogSummary -SummaryObject $OsUpgradeSummary -LogPath $LogPath
 
 # -------------------------
 # 5. LOOP 3: PI-HOLE UPDATES REPORT
 # -------------------------
 "----------`n PI-HOLE UPDATES REPORT `n----------"  | Out-File $LogPath -Append
 
-Invoke-UpdateCommand `
+$PiHoleCheckResult = Invoke-UpdateCommand `
     -TaskName "Check for Pi-hole updates" `
     -Command "pihole -v" `
     -PiHost $PiHost `
     -LogPath $LogPath `
     -LogOutput
+    -RetryCount $Retry.RetryCount `
+    -RetryDelaySeconds $Retry.RetryDelaySeconds `
+    -DryRun:$DryRun
 
-Invoke-UpdateCommand `
+$PiHoleUpdateResult = Invoke-UpdateCommand `
     -TaskName "Pi-hole updates" `
     -Command "sudo pihole -up" `
     -PiHost $PiHost `
     -LogPath $LogPath `
     -LogOutput:$false
-
+    -RetryCount $Retry.RetryCount `
+    -RetryDelaySeconds $Retry.RetryDelaySeconds `
+    -DryRun:$DryRun
+    
 # -------------------------
 # 6. REBOOT (still optional)
 # -------------------------
@@ -184,3 +217,36 @@ $EndTime = Get-Date
 $Duration = $EndTime - $StartTime
 
 "Automatic update completed: $Timestamp`nTotal runtime: $Duration`n(see Raspberry Pi logs)" | Out-File $LogPath -Append
+
+$JsonSummary = [PSCustomObject]@{
+    Timestamp = $Timestamp
+    PiHost    = $PiHost
+    DryRun    = $DryRun
+    Retry     = $Retry
+
+    Maintenance = @{
+        WipeLogs     = $WipeResult
+        DiskSpace    = $DiskResult
+        Uptime       = $UptimeResult
+        Temperature  = $TempResult
+        Throttling   = $ThrottleResult
+        PiHoleStatus = $PiHoleStatusResult
+    }
+
+    Updates = @{
+        check = $OsCheckResult
+        UpgradeablePackages = $OsUpgradeSummary."Not Upgrading"
+        Summary             = $OsUpgradeSummary.Summary
+        UpgradeResult       = $OsUpgradeResult
+    }
+
+    PiHoleUpdates = @{
+        Check  = $PiHoleCheckResult
+        Update = $PiHoleUpdateResult
+    }
+
+    Runtime = $Duration.ToString()
+}
+
+$JsonPath = $LogPath.Replace(".log", ".json")
+$JsonSummary | ConvertTo-Json -Depth 6 | Out-File $JsonPath

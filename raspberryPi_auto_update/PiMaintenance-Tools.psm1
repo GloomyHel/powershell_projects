@@ -33,8 +33,6 @@ function Show-Result {
     }
 }
 
-
-
 # -------------------------
 # LAYER 2: RAW SSH EXECUTION (INTERNAL)
 # -------------------------
@@ -56,31 +54,72 @@ function Invoke-RawSsh {
         [string]$Command,
 
         [Parameter(Mandatory=$true)]
-        [string]$PiHost
+        [string]$PiHost,
+
+        [Parameter()]
+        [int]$RetryCount = 0,
+
+        [Parameter()]
+        [int]$RetryDelaySeconds = 0,
+
+        [Parameter()]
+        [switch]$DryRun
     )
+
+    # DRY RUN MODE — no SSH executed
+    if ($DryRun) {
+        return [PSCustomObject]@{
+            Success       = $true
+            RawOutput     = "[DRY RUN] Command skipped: $Command"
+            ErrorCategory = "None"
+        }
+    } 
+
     [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
-    $raw = ssh "$PiHost" "$Command" 2>&1
-    $success = $LASTEXITCODE -eq 0
-    $text = ($raw | Out-String)
+    $attempt = 0
+    
+    while ($attempt -le $RetryCount) {
+   
+        $raw = ssh "$PiHost" "$Command" 2>&1
+        $success = $LASTEXITCODE -eq 0
+        $text = ($raw | Out-String)
 
-    # Error categorisation
-    $category = "None"
+        # Error categorisation
+        $category = "None"
+        if (-not $success) {
+            if ($text -match "Permission denied") { $category = "AuthenticationError" }
+            elseif ($text -match "Could not resolve hostname") { $category = "DnsError" }
+            elseif ($text -match "Connection timed out") { $category = "TimeoutError" }
+            elseif ($text -match "Connection refused") { $category = "ConnectionError" }
+            else { $category = "UnknownError" }
+        }
 
-    if (-not $success) {
-        if ($text -match "Permission denied") { $category = "AuthenticationError" }
-        elseif ($text -match "Could not resolve hostname") { $category = "DnsError" }
-        elseif ($text -match "Connection timed out") { $category = "TimeoutError" }
-        elseif ($text -match "Connection refused") { $category = "ConnectionError" }
-        else { $category = "UnknownError" }
+        # SUCCESS — return immediately
+        if ($success) {        
+            return [PSCustomObject]@{
+                Success   = $true
+                RawOutput = $text
+                ErrorCategory = "None"        
+            }
+        }
+
+        # FAILURE — check if we should retry
+        if ($attempt -lt $RetryCount) {
+            Start-Sleep -Seconds $RetryDelaySeconds
+        }
+
+        $attempt++
     }
 
+    # FINAL FAILURE — return last error
     return [PSCustomObject]@{
-        Success   = $success
-        RawOutput = $text
-        ErrorCategory = $category        
+        Success       = $false
+        RawOutput     = $text
+        ErrorCategory = $category
     }
 }
+
 
 # -------------------------
 # LAYER 3: NORMALISATION HELPERS (INTERNAL)
@@ -93,12 +132,8 @@ function Normalize-SingleLine {
     .PARAMETER RawOutput
         Raw string from Invoke-RawSsh.
     #>
-    param(
-        [string]$RawOutput
-    )
-    if ([string]::IsNullOrWhiteSpace($RawOutput)) {
-        return ""
-    }
+    param([string]$RawOutput)
+    if ([string]::IsNullOrWhiteSpace($RawOutput)) { return "" }
     return $RawOutput.Trim()
 }
 
@@ -109,12 +144,9 @@ function Normalize-MultiLine {
     .PARAMETER RawOutput
         Raw string from Invoke-RawSsh.
     #>
-    param(
-        [string]$RawOutput
-    )
-    if ([string]::IsNullOrWhiteSpace($RawOutput)) {
-        return @()
-    }
+    param([string]$RawOutput)
+    if ([string]::IsNullOrWhiteSpace($RawOutput)) { return @() }
+
     $text = $RawOutput.TrimEnd()
     $lines = $text -split "`n"
 
@@ -167,13 +199,29 @@ function Invoke-MaintenanceCommand {
         [string]$LogPath,
 
         [Parameter()]
+        [int]$RetryCount = 0,
+
+        [Parameter()]
+        [int]$RetryDelaySeconds = 0,
+
+        [Parameter()]
+        [switch]$DryRun,
+
+        [Parameter()]
         [switch]$NoOutput,
+
+        [Parameter()]
         [switch]$MultiLine
     )
     Show-Step $TaskName
 
-    $result = Invoke-RawSsh -Command $Command -PiHost $PiHost
-
+    $result = Invoke-RawSsh `
+        -Command $Command `
+        -PiHost $PiHost
+        -RetryCount $RetryCount `
+        -RetryDelaySeconds $RetryDelaySeconds `
+        -DryRun:$DryRun
+    
     if ($MultiLine) {
         $lines = Normalize-MultiLine -RawOutput $result.RawOutput
     }
@@ -249,11 +297,28 @@ function Invoke-UpdateCommand {
 
         [Parameter(Mandatory=$true)]
         [string]$LogPath,
-        [switch]$LogOutput
+
+        [Parameter()]
+        [int]$RetryCount = 0,
+
+        [Parameter()]
+        [int]$RetryDelaySeconds = 0,
+       
+        [Parameter()]
+        [switch]$DryRun,
+
+        [Parameter()]
+        [switch]$LogOutput        
     )
     Show-Step $TaskName
 
-    $result = Invoke-RawSsh -Command $Command -PiHost $PiHost
+    $result = Invoke-RawSsh `
+        -Command $Command `
+        -PiHost $PiHost `
+        -RetryCount $RetryCount `
+        -RetryDelaySeconds $RetryDelaySeconds `
+        -DryRun:$DryRun
+    
     $lines  = Normalize-MultiLine -RawOutput $result.RawOutput
 
     if ($result.Success) {
@@ -367,4 +432,10 @@ function Write-LogSummary {
 # EXPORT PUBLIC API
 # -------------------------
 
-Export-ModuleMember -Function Invoke-MaintenanceCommand, Invoke-UpdateCommand, ConvertFrom-AptSummary, Write-LogSummary, Show-Step, Show-Result
+Export-ModuleMember -Function `
+    Invoke-MaintenanceCommand, `
+    Invoke-UpdateCommand, `
+    ConvertFrom-AptSummary, `
+    Write-LogSummary, `
+    Show-Step, `
+    Show-Result

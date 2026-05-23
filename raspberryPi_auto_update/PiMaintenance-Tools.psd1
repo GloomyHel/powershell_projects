@@ -12,4 +12,9 @@
         'Show-Step',
         'Show-Result'
     )
+    PrivateData = @{
+        PSData = @{
+            Tags = @("RaspberryPi", "Automation", "Maintenance")
+        }
+    }
 }
