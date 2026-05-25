@@ -229,7 +229,17 @@ $PiHoleUpdateResult = Invoke-UpdateCommand `
 # 6. REBOOT (still optional)
 # -------------------------
 "----------`n RASPBERRY-PI REBOOT `n----------"  | Out-File $LogPath -Append
-# You can later swap this to Invoke-UpdateCommand if you want logged reboot.
+
+$RebootResult = Invoke-UpdateCommand `
+    -TaskName "Reboot Raspberry Pi" `
+    -Command "sudo reboot" `
+    -PiHost $PiHost `
+    -LogPath $LogPath `
+    -LogOutput:$false `
+    -RetryCount $Retry.RetryCount `
+    -RetryDelaySeconds $Retry.RetryDelaySeconds `
+    -DryRun:$DryRun
+
 
 # -------------------------
 # 7. FINAL SUMMARY AND RUNTIME CALCULATION
@@ -268,6 +278,7 @@ $JsonSummary = [PSCustomObject]@{
         Update = $PiHoleUpdateResult
     }
 
+    PiHoleReboot = $RebootResult
     Runtime = $Duration.ToString()
 }
 
