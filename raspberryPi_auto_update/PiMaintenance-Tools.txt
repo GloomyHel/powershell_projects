@@ -217,7 +217,7 @@ function Invoke-MaintenanceCommand {
 
     $result = Invoke-RawSsh `
         -Command $Command `
-        -PiHost $PiHost
+        -PiHost $PiHost `
         -RetryCount $RetryCount `
         -RetryDelaySeconds $RetryDelaySeconds `
         -DryRun:$DryRun

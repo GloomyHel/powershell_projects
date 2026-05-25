@@ -286,3 +286,7 @@ $JsonPath = $LogPath.Replace(".log", ".json")
 $JsonSummary | ConvertTo-Json -Depth 6 | Out-File $JsonPath
 
 (Get-Date).ToString("o") | Out-File $LastRunFile
+
+# To do:
+# add sudo apt autoremove -y and log results
+# fix upgradable packages list
